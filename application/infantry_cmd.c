@@ -53,6 +53,9 @@ int32_t shoot_firction_ctrl(uint8_t *buff, uint16_t len);
 int32_t gimbal_angle_ctrl(uint8_t *buff, uint16_t len);
 int32_t shoot_ctrl(uint8_t *buff, uint16_t len);
 int32_t student_data_transmit(uint8_t *buff, uint16_t len);
+int32_t gimbal_chassis_forward(uint8_t *buff,uint16_t len);
+
+
 
 int32_t rc_data_forword_by_can(uint8_t *buff, uint16_t len)
 {
@@ -120,6 +123,7 @@ void infantry_cmd_task(void const *argument)
     protocol_rcv_cmd_register(CMD_CHASSIS_POWER, chassis_power_callback);
     protocol_rcv_cmd_register(CMD_SHOOTER_HEAT, shooter_data_callback);
     protocol_rcv_cmd_register(CMD_ROBOT_STATE, robot_state_data_callback);
+		protocol_rcv_cmd_register(CMD_CHASSIS_CMD, gimbal_chassis_forward);
   }
 
   while (1)
@@ -137,22 +141,26 @@ void infantry_cmd_task(void const *argument)
 
       if (event.status == osEventSignal)
       {
+				/**
+					* Edited By Eric Chen
+					* Enable Chassis ctrl by Computer
+					*/
         if (event.value.signals & MANIFOLD2_CHASSIS_SIGNAL)
         {
-          //struct cmd_chassis_speed *pspeed;
-          //pspeed = &manifold_cmd.chassis_speed;
-          //chassis_set_offset(pchassis, pspeed->rotate_x_offset, pspeed->rotate_x_offset);
-          //chassis_set_acc(pchassis, 0, 0, 0);
-          //chassis_set_speed(pchassis, pspeed->vx, pspeed->vy, pspeed->vw / 10.0f);
+          struct cmd_chassis_speed *pspeed;
+          pspeed = &manifold_cmd.chassis_speed;
+          chassis_set_offset(pchassis, pspeed->rotate_x_offset, pspeed->rotate_x_offset);
+          chassis_set_acc(pchassis, 0, 0, 0);
+          chassis_set_speed(pchassis, pspeed->vx, pspeed->vy, pspeed->vw / 10.0f);
         }
 
         if (event.value.signals & MANIFOLD2_CHASSIS_ACC_SIGNAL)
         {
-          // struct cmd_chassis_spd_acc *pacc;
-          // pacc = &manifold_cmd.chassis_spd_acc;
-          // chassis_set_offset(pchassis, pacc->rotate_x_offset, pacc->rotate_x_offset);
-          // chassis_set_acc(pchassis, pacc->ax, pacc->ay, pacc->wz / 10.0f);
-          // chassis_set_speed(pchassis, pacc->vx, pacc->vy, pacc->vw / 10.0f);
+          struct cmd_chassis_spd_acc *pacc;
+          pacc = &manifold_cmd.chassis_spd_acc;
+          chassis_set_offset(pchassis, pacc->rotate_x_offset, pacc->rotate_x_offset);
+          chassis_set_acc(pchassis, pacc->ax, pacc->ay, pacc->wz / 10.0f);
+          chassis_set_speed(pchassis, pacc->vx, pacc->vy, pacc->vw / 10.0f);
         }
 				/* Edited By Eric Chen 
 				 * Send continous data from PC for Debugging Kalman filter
@@ -190,21 +198,25 @@ void infantry_cmd_task(void const *argument)
             auto_aiming_yaw = pangle->yaw;
           }
         }
+				/**
+					* Edited BY Eric Chen 
+					* Enable PC -> Shoot Control
+					*/
         //
-        // if (event.value.signals & MANIFOLD2_SHOOT_SIGNAL)
-        // {
-        //   struct cmd_shoot_num *pctrl;
-        //   pctrl = &manifold_cmd.shoot_num;
-        //   shoot_set_cmd(pshoot, pctrl->shoot_cmd, pctrl->shoot_add_num);
-        //   shoot_set_turn_speed(pshoot, pctrl->shoot_freq);
-        // }
-        //
-        // if (event.value.signals & MANIFOLD2_FRICTION_SIGNAL)
-        // {
-        //   struct cmd_firction_speed *pctrl;
-        //   pctrl = &manifold_cmd.firction_speed;
-        //   shoot_set_fric_speed(pshoot, pctrl->left, pctrl->right);
-        // }
+         if (event.value.signals & MANIFOLD2_SHOOT_SIGNAL)
+        {
+           struct cmd_shoot_num *pctrl;
+           pctrl = &manifold_cmd.shoot_num;
+           shoot_set_cmd(pshoot, pctrl->shoot_cmd, pctrl->shoot_add_num);
+           shoot_set_turn_speed(pshoot, pctrl->shoot_freq);
+        }
+        
+        if (event.value.signals & MANIFOLD2_FRICTION_SIGNAL)
+         {
+           struct cmd_firction_speed *pctrl;
+           pctrl = &manifold_cmd.firction_speed;
+           shoot_set_fric_speed(pshoot, pctrl->left, pctrl->right);
+         }
       }
       else
       {
@@ -302,7 +314,7 @@ int32_t gimbal_push_info(void *argc)
     cmd_gimbal_info.yaw_ecd_angle = 0;
   }
 
-  protocol_send(PROTOCOL_BROADCAST_ADDR, CMD_PUSH_GIMBAL_INFO, &cmd_gimbal_info, sizeof(cmd_gimbal_info));
+  protocol_send(MANIFOLD2_ADDRESS, CMD_PUSH_GIMBAL_INFO, &cmd_gimbal_info, sizeof(cmd_gimbal_info));
 
   return 0;
 }
@@ -321,7 +333,7 @@ int32_t chassis_push_info(void *argc)
   cmd_chassis_info.v_x_mm = info.v_x_mm;
   cmd_chassis_info.v_y_mm = info.v_y_mm;
 
-  protocol_send(MANIFOLD2_ADDRESS, CMD_PUSH_CHASSIS_INFO, &cmd_chassis_info, sizeof(cmd_chassis_info));
+  protocol_send(GIMBAL_ADDRESS, CMD_PUSH_CHASSIS_INFO, &cmd_chassis_info, sizeof(cmd_chassis_info));
 
   return 0;
 }
@@ -381,6 +393,20 @@ uint16_t * shooter_heat_get_via_can(void)
 {
   return shooter_heat_data;
 }
+/** Added by Eric Chen
+	* @Oct 19, 2019: 
+	* Data forward from Chassis to tx2
+	*/
+
+int32_t gimbal_chassis_forward(uint8_t *buff,uint16_t len)
+{
+	if(len == sizeof(cmd_chassis_info))
+		protocol_send(MANIFOLD2_ADDRESS,CMD_CHASSIS_CMD,buff,len); 
+}
+
+
+
+
 /**Added by Y.H. Liu
  * @Jul 21, 2019: Define the functions
  * 

@@ -94,6 +94,7 @@ void chassis_task(void const *argument)
   static int8_t   twist_cnt = 1;
   static float    last_relative_angle;
   #endif
+	// TO DO: ADD A AUTOMATIC MODE.
   while (1)
   {
     static uint8_t sw, extra_current;

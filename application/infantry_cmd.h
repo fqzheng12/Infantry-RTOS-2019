@@ -64,6 +64,7 @@
 #define CMD_CHASSIS_POWER                   (0x0404u)
 #define CMD_SHOOTER_HEAT                    (0x0405u)
 #define CMD_ROBOT_STATE                     (0x0406u)
+#define CMD_CHASSIS_CMD											(0x0407u)
 
 #pragma pack(push,1)
 
