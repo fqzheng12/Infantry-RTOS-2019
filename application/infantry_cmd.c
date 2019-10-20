@@ -54,6 +54,7 @@ int32_t gimbal_angle_ctrl(uint8_t *buff, uint16_t len);
 int32_t shoot_ctrl(uint8_t *buff, uint16_t len);
 int32_t student_data_transmit(uint8_t *buff, uint16_t len);
 int32_t gimbal_chassis_forward(uint8_t *buff,uint16_t len);
+//int32_t set_chassis_cmd(uint8_t *buff,uint16_t len);
 
 
 
@@ -123,7 +124,10 @@ void infantry_cmd_task(void const *argument)
     protocol_rcv_cmd_register(CMD_CHASSIS_POWER, chassis_power_callback);
     protocol_rcv_cmd_register(CMD_SHOOTER_HEAT, shooter_data_callback);
     protocol_rcv_cmd_register(CMD_ROBOT_STATE, robot_state_data_callback);
-		protocol_rcv_cmd_register(CMD_CHASSIS_CMD, gimbal_chassis_forward);
+		protocol_rcv_cmd_register(CMD_CHASSIS_INFO, gimbal_chassis_forward);
+		protocol_rcv_cmd_register(CMD_SET_CHASSIS_SPEED, chassis_speed_ctrl);
+    protocol_rcv_cmd_register(CMD_SET_CHASSIS_SPD_ACC, chassis_spd_acc_ctrl);
+		//protocol_rcv_cmd_register(CMD_CHASSIS_CMD, set_chassis_cmd);
   }
 
   while (1)
@@ -149,7 +153,7 @@ void infantry_cmd_task(void const *argument)
         if (event.value.signals & MANIFOLD2_CHASSIS_SIGNAL)
         {
           struct cmd_chassis_speed *pspeed;
-          pspeed = &manifold_cmd.chassis_speed;
+          pspeed = &manifold_cmd.chassis_speed; // Received CMD from TX2 need to forward to chassis
           chassis_set_offset(pchassis, pspeed->rotate_x_offset, pspeed->rotate_x_offset);
           chassis_set_acc(pchassis, 0, 0, 0);
           chassis_set_speed(pchassis, pspeed->vx, pspeed->vy, pspeed->vw / 10.0f);
@@ -236,23 +240,39 @@ int32_t student_data_transmit(uint8_t *buff, uint16_t len)
   return 0;
 }
 
+/** Edited By Eric Chen
+	* If Gimbal board we need to forward infomation to chassis board.
+	* If Chassis board listen to infomation from gimbal.
+	*/
+
 int32_t chassis_speed_ctrl(uint8_t *buff, uint16_t len)
 {
-  if (len == sizeof(struct cmd_chassis_speed))
+	uint8_t app = get_sys_cfg();
+  if (len == sizeof(struct cmd_chassis_speed) && app == CHASSIS_APP)
   {
     memcpy(&manifold_cmd.chassis_speed, buff, len);
     osSignalSet(cmd_task_t, MANIFOLD2_CHASSIS_SIGNAL);
   }
+	else if(len == sizeof(struct cmd_chassis_speed))
+	{
+		// Can be change in to flag if this method failed
+		protocol_send(CHASSIS_ADDRESS, CMD_SET_CHASSIS_SPEED, buff,len);
+	}
   return 0;
 }
 
 int32_t chassis_spd_acc_ctrl(uint8_t *buff, uint16_t len)
 {
-  if (len == sizeof(struct cmd_chassis_spd_acc))
+	uint8_t app = get_sys_cfg();
+  if (len == sizeof(struct cmd_chassis_spd_acc) && app == CHASSIS_APP)
   {
     memcpy(&manifold_cmd.chassis_spd_acc, buff, len);
     osSignalSet(cmd_task_t, MANIFOLD2_CHASSIS_ACC_SIGNAL);
   }
+	else if(len == sizeof(struct cmd_chassis_spd_acc))
+	{
+		protocol_send(CHASSIS_ADDRESS, CMD_SET_CHASSIS_SPD_ACC, buff, len);
+	}
   return 0;
 }
 //When Gimbal received command from the tx2
@@ -402,7 +422,7 @@ uint16_t * shooter_heat_get_via_can(void)
 int32_t gimbal_chassis_forward(uint8_t *buff,uint16_t len)
 {
 	if(len == sizeof(cmd_chassis_info))
-		protocol_send(MANIFOLD2_ADDRESS,CMD_CHASSIS_CMD,buff,len); 
+		protocol_send(MANIFOLD2_ADDRESS,CMD_CHASSIS_INFO,buff,len); 
 }
 
 /**Added by Y.H. Liu
