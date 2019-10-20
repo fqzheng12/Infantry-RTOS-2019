@@ -102,6 +102,13 @@ void chassis_task(void const *argument)
     if (rc_device_get_state(prc_dev, RC_S2_UP) == RM_OK || rc_device_get_state(prc_dev, RC_S2_MID) == RM_OK)
     { //not disabled
       chassis_enable(pchassis);
+			// For ICRA_BOT
+			if(rc_device_get_state(prc_dev,RC_S2_UP)==RM_OK)
+			{
+				// Wait for computer Signal and do Nothing.
+			}
+			else
+			{
       int32_t key_x_speed = MAX_CHASSIS_VX_SPEED/2;
       int32_t key_y_speed = MAX_CHASSIS_VY_SPEED/2;
       if(prc_info->kb.bit.V)
@@ -161,14 +168,19 @@ void chassis_task(void const *argument)
         wz*=0.8f;
       }
       chassis_set_speed(pchassis, vx, vy, wz);
+			chassis_set_acc(pchassis, 0, 0, 0);
+		}
+		// ICRA Else end
     }
+		// Disable the chassis.
     else
     {
       chassis_set_speed(pchassis, 0, 0, 0);
+			chassis_set_acc(pchassis, 0, 0, 0);
       chassis_disable(pchassis);
       WRITE_LOW_CAPACITOR();
     }
-    chassis_set_acc(pchassis, 0, 0, 0);
+    
 
     #ifdef CHASSIS_POWER_CTRL
       uint8_t current_excess_flag = 0;

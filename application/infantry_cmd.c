@@ -128,8 +128,9 @@ void infantry_cmd_task(void const *argument)
 
   while (1)
   {
-    if (rc_device_get_state(prc_dev, RC_S2_DOWN) == RM_OK) //S2:DOWN ---- disabled
+    if (rc_device_get_state(prc_dev, RC_S2_UP) != RM_OK) //S2:DOWN ---- disabled communication at all 
     {
+			// This statement is used for disable the auto control.
       memset(&manifold_cmd, 0, sizeof(struct manifold_cmd));
       osDelay(100);
     }
@@ -185,8 +186,8 @@ void infantry_cmd_task(void const *argument)
           }
           else
           {
-            // gimbal_set_pitch_speed(pgimbal, pangle->pitch / 10.0f);
-            auto_aiming_pitch = pangle->pitch;
+            //gimbal_set_pitch_speed(pgimbal, pangle->pitch / 10.0f);
+            auto_aiming_pitch = pangle->pitch; // Using Kalman Filter.
           }
           if (pangle->ctrl.bit.yaw_mode == 0)
           {
@@ -194,8 +195,8 @@ void infantry_cmd_task(void const *argument)
           }
           else
           {
-            // gimbal_set_yaw_speed(pgimbal, pangle->yaw / 10.0f);
-            auto_aiming_yaw = pangle->yaw;
+             //gimbal_set_yaw_speed(pgimbal, pangle->yaw / 10.0f);
+            auto_aiming_yaw = pangle->yaw; // Using Kalman Filter
           }
         }
 				/**
@@ -397,15 +398,12 @@ uint16_t * shooter_heat_get_via_can(void)
 	* @Oct 19, 2019: 
 	* Data forward from Chassis to tx2
 	*/
-
+// TODO: Test id data can be sent successfully 
 int32_t gimbal_chassis_forward(uint8_t *buff,uint16_t len)
 {
 	if(len == sizeof(cmd_chassis_info))
 		protocol_send(MANIFOLD2_ADDRESS,CMD_CHASSIS_CMD,buff,len); 
 }
-
-
-
 
 /**Added by Y.H. Liu
  * @Jul 21, 2019: Define the functions
